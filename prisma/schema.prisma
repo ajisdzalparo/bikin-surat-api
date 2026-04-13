@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PlanType {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model User {
+  id         String   @id @default(uuid())
+  full_name  String
+  email      String   @unique
+  password   String
+  role       UserRole @default(USER)
+  is_suspended Boolean @default(false)
+  avatar_url String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // RELATION
+  organizations Organization[] @relation("UserOrganizations")
+  subscriptions Subscription[]
+  documents     Document[]
+  reset_tokens  PasswordResetToken[]
+}
+
+model GlobalTemplate {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  category    String
+  content     String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+}
+
+model PasswordResetToken {
+  id         String   @id @default(uuid())
+  user_id    String
+  token      String   @unique
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Organization {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  address    String
+  logo_url   String?
+  owner_id   String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // RELATION
+  owner     User       @relation("UserOrganizations", fields: [owner_id], references: [id])
+  documents Document[]
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  user_id              String
+  plan_type            PlanType
+  current_period_start DateTime
+  current_period_end   DateTime
+  status               SubscriptionStatus
+  payment_gateway_id   String
+
+  // RELATION
+  user         User                 @relation(fields: [user_id], references: [id])
+  transactions PaymentTransaction[]
+}
+
+model PaymentTransaction {
+  id                     String        @id @default(uuid())
+  subscription_id        String
+  gateway_transaction_id String
+  amount                 Decimal
+  currency               String
+  status                 PaymentStatus
+  created_at             DateTime      @default(now())
+
+  // RELATION
+  subscription Subscription @relation(fields: [subscription_id], references: [id])
+}
+
+model Document {
+  id              String   @id @default(uuid())
+  user_id         String
+  organization_id String?
+  document_type   String
+  final_content   String
+  signature_date  DateTime
+  file_url        String
+  created_at      DateTime @default(now())
+
+  // RELATION
+  user         User          @relation(fields: [user_id], references: [id])
+  organization Organization? @relation(fields: [organization_id], references: [id])
+}
